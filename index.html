@@ -1,0 +1,33 @@
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const targetOrigins = [
+      "https://buildflow.vercel.app",
+    ];
+    document.querySelectorAll("*").forEach((element) => {
+      element.addEventListener("click", () => {
+        targetOrigins.forEach((targetOrigin) => {
+          window.postMessage(
+            { type: "ELEMENT_CLICKED", element },
+            targetOrigin
+          );
+        });
+      });
+      element.addEventListener("mouseover", () => {
+        targetOrigins.forEach((targetOrigin) => {
+          window.postMessage(
+            { type: "ELEMENT_HOVERED_OVER", element },
+            targetOrigin
+          );
+        });
+      });
+      element.addEventListener("mouseout", () => {
+        targetOrigins.forEach((targetOrigin) => {
+          window.postMessage(
+            { type: "ELEMENT_HOVERED_OUT", element },
+            targetOrigin
+          );
+        });
+      });
+    });
+  });
+</script>
