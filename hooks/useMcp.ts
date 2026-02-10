@@ -6,6 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { McpServerConfig, McpConnectionStatus } from "@/types";
 import {
   getAllMcpServers,
+  getMcpServer,
   saveMcpServer,
   deleteMcpServer as deleteServerFromDB,
   updateMcpServer,
@@ -90,12 +91,8 @@ export function useMcp() {
     );
 
     try {
-      // Read config from current state via ref-stable getter
-      let config: McpServerConfig | undefined;
-      setServers((prev) => {
-        config = prev.find((s) => s.config.id === serverId)?.config;
-        return prev;
-      });
+      // Read config from IndexedDB (source of truth) to avoid React batching issues
+      const config = await getMcpServer(serverId);
       if (!config) throw new Error("Server not found");
 
       // Close existing client if any
