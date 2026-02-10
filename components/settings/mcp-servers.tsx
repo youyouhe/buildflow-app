@@ -22,6 +22,7 @@ import {
   Plug,
   Eye,
   EyeOff,
+  Key,
 } from "lucide-react";
 import { useMcp } from "@/hooks/useMcp";
 import type { McpConnectionStatus } from "@/types";
@@ -74,6 +75,9 @@ export function McpServersSettings() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ServerFormData>(emptyForm);
   const [showToken, setShowToken] = useState(false);
+  const [builtInTokens, setBuiltInTokens] = useState<Record<string, string>>({});
+  const [showBuiltInToken, setShowBuiltInToken] = useState<Record<string, boolean>>({});
+  const [savingBuiltInToken, setSavingBuiltInToken] = useState<Record<string, boolean>>({});
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -102,6 +106,33 @@ export function McpServersSettings() {
     setShowToken(false);
     setTestResult(null);
     setDialogOpen(true);
+  };
+
+  const handleSaveBuiltInToken = async (id: string) => {
+    const token = builtInTokens[id]?.trim();
+    if (!token) {
+      toast.error("Please enter an API key");
+      return;
+    }
+    setSavingBuiltInToken((prev) => ({ ...prev, [id]: true }));
+    try {
+      await editServer(id, { authToken: token });
+      setBuiltInTokens((prev) => ({ ...prev, [id]: "" }));
+      toast.success("API key saved");
+    } catch {
+      toast.error("Failed to save API key");
+    } finally {
+      setSavingBuiltInToken((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleDeleteBuiltInToken = async (id: string) => {
+    try {
+      await editServer(id, { authToken: undefined });
+      toast.success("API key removed");
+    } catch {
+      toast.error("Failed to remove API key");
+    }
   };
 
   const handleTestConnection = async () => {
@@ -305,6 +336,77 @@ export function McpServersSettings() {
                   />
                 </div>
               </div>
+
+              {config.isBuiltIn && (
+                <div className="mt-4">
+                  {config.authToken ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-neutral-400 bg-neutral-800/50 px-4 py-2.5 rounded-lg">
+                        <Key className="size-4" />
+                        <span>API key is configured</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteBuiltInToken(config.id)}
+                      >
+                        Remove API Key
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="block text-sm text-neutral-400">
+                        API Key
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type={showBuiltInToken[config.id] ? "text" : "password"}
+                            placeholder="Enter API key..."
+                            value={builtInTokens[config.id] || ""}
+                            onChange={(e) =>
+                              setBuiltInTokens((prev) => ({
+                                ...prev,
+                                [config.id]: e.target.value,
+                              }))
+                            }
+                            className="pr-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowBuiltInToken((prev) => ({
+                                ...prev,
+                                [config.id]: !prev[config.id],
+                              }))
+                            }
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                          >
+                            {showBuiltInToken[config.id] ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </button>
+                        </div>
+                        <Button
+                          onClick={() => handleSaveBuiltInToken(config.id)}
+                          disabled={savingBuiltInToken[config.id] || !builtInTokens[config.id]?.trim()}
+                        >
+                          {savingBuiltInToken[config.id] ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Key"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
