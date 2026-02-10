@@ -167,7 +167,7 @@ export const useAi = (onScrollToBottom?: () => void) => {
     client.setQueryData(["ai.contextFile"], newContextFile)
   };
 
-  const { data: provider } = useQuery({
+  const { data: provider = "auto" } = useQuery({
     queryKey: ["ai.provider"],
     queryFn: async () => {
       const savedProvider = await getSetting('lastSelectedProvider');
@@ -176,7 +176,9 @@ export const useAi = (onScrollToBottom?: () => void) => {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: false,
-    initialData: "auto"
+    // Cache the provider selection indefinitely
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
   const setProvider = (newProvider: string) => {
     // Update query cache immediately (sync)
@@ -187,34 +189,35 @@ export const useAi = (onScrollToBottom?: () => void) => {
     });
   };
 
-  const { data: model } = useQuery({
+  const { data: model = MODELS[0].value } = useQuery({
     queryKey: ["ai.model"],
     queryFn: async () => {
       const savedModel = await getSetting('lastSelectedModel');
-      
+
       // Check if the model exists in the MODELS array
       const selectedModel = MODELS.find(m => m.value === savedModel || m.label === savedModel);
       if (selectedModel) {
         console.log("Using selected model:", selectedModel.value);
         return selectedModel.value;
       }
-      
+
       // Fallback to first model if stored model doesn't exist
       console.warn("Stored model not found, using default:", MODELS[0].value);
       console.warn("Stored model was:", savedModel);
-      
+
       // Update IndexedDB to the default model
       setSetting('lastSelectedModel', MODELS[0].value).catch(err => {
         console.error('Failed to save default model to IndexedDB:', err);
       });
-      
+
       return MODELS[0].value;
     },
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: false,
-    // Use first model as default to prevent undefined
-    initialData: MODELS[0].value,
+    // Cache the model selection indefinitely
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
   const setModel = (newModel: string) => {
     console.log("Setting new model:", newModel);

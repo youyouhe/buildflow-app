@@ -9,11 +9,14 @@ import { NotLogged } from "../not-logged/not-logged";
 import { ProjectCard } from "./project-card";
 import { getAllProjects, deleteProject } from "@/lib/indexeddb/projects";
 import { Project } from "@/types";
+import { ShareModal } from "@/components/community/share-modal";
 
 export function MyProjects() {
   const { user } = useUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -47,6 +50,11 @@ export function MyProjects() {
       console.error("Failed to delete project:", error);
       toast.error("Failed to delete project");
     }
+  };
+
+  const handleShare = (project: Project) => {
+    setSelectedProject(project);
+    setShareModalOpen(true);
   };
 
   if (!user) {
@@ -85,6 +93,7 @@ export function MyProjects() {
                 key={project.id}
                 project={project}
                 onDelete={() => handleDeleteClick(project)}
+                onShare={() => handleShare(project)}
               />
             ))
           )}
@@ -96,6 +105,21 @@ export function MyProjects() {
           </div>
         )}
       </section>
+
+      {selectedProject && (
+        <ShareModal
+          open={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          project={{
+            id: selectedProject.id,
+            title: selectedProject.title,
+            description: selectedProject.description,
+            files: selectedProject.files,
+            prompts: selectedProject.prompts,
+            thumbnail: selectedProject.thumbnail,
+          }}
+        />
+      )}
     </>
   );
 }

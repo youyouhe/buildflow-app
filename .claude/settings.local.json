@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(git mv:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(dir:*)",
+      "Bash(git config:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Update AI models to OpenRouter top 10 and add community sharing feature\n\n- Update default model to Kimi K2.5 \\(OpenRouter #1 ranked\\)\n- Add OpenRouter top 10 models \\(Kimi K2.5, Gemini 3 Flash, Claude Sonnet 4.5, etc.\\)\n- Fix model selection persistence across sessions\n- Add community sharing feature with Supabase backend\n  - Separate ''community'' schema to avoid table limits\n  - Row-Level Security \\(RLS\\) for access control\n  - Categories, projects, likes, downloads tables\n  - Share modal for local projects\n- Add Textarea UI component\n- Improve provider auto-selection for OpenRouter models\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatDistance } from "date-fns";
-import { Download, EllipsisVertical, Trash } from "lucide-react";
+import { Download, EllipsisVertical, Trash, Share2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,11 @@ import { toast } from "sonner";
 export const ProjectCard = ({
   project,
   onDelete,
+  onShare,
 }: {
   project: Project;
   onDelete: () => void;
+  onShare?: () => void;
 }) => {
   // Use state for current time to avoid hydration mismatch
   const [now, setNow] = useState(project.updatedAt); // Start with updatedAt to avoid jump
@@ -85,6 +87,18 @@ export const ProjectCard = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
+              {onShare && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShare();
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Share2 className="size-4 mr-2" />
+                  Share to Community
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();

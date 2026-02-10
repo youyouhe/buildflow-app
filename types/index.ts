@@ -241,3 +241,80 @@ export interface Commit {
   oid: string;
   date: Date;
 }
+
+// ==========================================
+// Community Types
+// ==========================================
+
+export interface CommunityProject {
+  id: string;
+  profile_id: string;
+  category_id?: string;
+  title: string;
+  description?: string;
+  thumbnail?: string;
+  files_jsonb: CommunityProjectFile[];
+  prompts_jsonb?: PromptEntry[];
+  github_repo?: {
+    owner: string;
+    repo: string;
+    branch: string;
+    pagesUrl?: string;
+  } | null;
+  vercel_deployment?: {
+    projectId: string;
+    deploymentUrl: string;
+    productionUrl?: string;
+  } | null;
+  visibility: 'public' | 'private';
+  views_count: number;
+  downloads_count: number;
+  forks_count: number;
+  likes_count: number;
+  file_count: number;
+  total_size: number;
+  created_at: string;
+  updated_at: string;
+  category?: Category;
+  profile?: CommunityProfile;
+  user_liked?: boolean;
+}
+
+export interface CommunityProjectFile {
+  path: string;
+  content: string;
+  language: string;
+  size: number;
+  compressed?: boolean;
+}
+
+export interface Category {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  sort_order: number;
+  is_active?: boolean;
+}
+
+export interface CommunityProfile {
+  id: string;
+  github_id: number;
+  github_login: string;
+  github_name?: string;
+  github_email?: string;
+  github_avatar_url: string;
+  github_bio?: string;
+}
+
+export interface SupabaseUser {
+  id: string;
+  githubId: number;
+  githubLogin: string;
+  githubName: string | null;
+  githubEmail: string | null;
+  githubAvatarUrl: string;
+  githubBio: string | null;
+}

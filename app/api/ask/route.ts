@@ -53,22 +53,29 @@ function getApiKeyForProvider(provider: AIProviderName, headers: Headers, apiKey
 }
 
 // Helper to select provider when "auto" is specified
-function selectProvider(providerPreference: AIProviderName | "auto", apiKeys?: Record<string, string>): AIProviderName {
+function selectProvider(providerPreference: AIProviderName | "auto", model: string, apiKeys?: Record<string, string>): AIProviderName {
   if (providerPreference !== "auto") {
     return providerPreference;
   }
-  
+
+  // For OpenRouter models, use openrouter provider
+  if (model.includes("/") || model.startsWith("anthropic/") || model.startsWith("google/") ||
+      model.startsWith("x-ai/") || model.startsWith("xiaomi/") || model.startsWith("moonshotai/") ||
+      model.startsWith("minimax/") || model.startsWith("arcee-ai/") || model.startsWith("deepseek/")) {
+    return "openrouter";
+  }
+
   // Priority order for auto selection
-  const providerPriority: AIProviderName[] = ["deepseek", "openai", "google"];
-  
+  const providerPriority: AIProviderName[] = ["openrouter", "deepseek", "openai", "google"];
+
   for (const provider of providerPriority) {
     if (apiKeys && apiKeys[provider]) {
       return provider;
     }
   }
-  
-  // Default to deepseek if no API keys available
-  return "deepseek";
+
+  // Default to openrouter if no API keys available
+  return "openrouter";
 }
 
 // Build system prompt based on request type
@@ -148,7 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Select provider
-    const provider = selectProvider(providerPreference, apiKeys);
+    const provider = selectProvider(providerPreference, model, apiKeys);
     
     // Get API key
     const apiKey = getApiKeyForProvider(provider, request.headers, apiKeys);
@@ -252,7 +259,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Select provider
-    const provider = selectProvider(providerPreference, apiKeys);
+    const provider = selectProvider(providerPreference, model, apiKeys);
     
     // Get API key
     const apiKey = getApiKeyForProvider(provider, request.headers, apiKeys);

@@ -39,11 +39,11 @@ export function getDefaultModel(provider: AIProviderName): string {
     case 'openai':
       return 'gpt-4o-mini';
     case 'google':
-      return 'gemini-2.0-flash-exp';
+      return 'gemini-2.5-flash'; // Updated to latest stable
     case 'deepseek':
-      return 'deepseek-chat';
+      return 'deepseek-chat'; // DeepSeek V3.2
     case 'openrouter':
-      return 'google/gemini-2.5-flash';
+      return 'google/gemini-3-flash-preview'; // Top ranked as of 2026-02
     default:
       return 'gpt-4o-mini';
   }
