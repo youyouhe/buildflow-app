@@ -72,10 +72,10 @@ export async function POST(
       profile_id: profileId,
       ip_address: request.headers.get('x-forwarded-for') || null,
       user_agent: request.headers.get('user-agent') || null
-    }).catch(console.error);
+    }).then(({ error }) => { if (error) console.error(error); });
 
     // Increment download count (don't wait for it)
-    supabase.rpc('increment_project_download', { project_uuid: id }).catch(console.error);
+    supabase.rpc('increment_project_download', { project_uuid: id }).then(({ error }) => { if (error) console.error(error); });
 
     // Return project data for import
     return NextResponse.json({

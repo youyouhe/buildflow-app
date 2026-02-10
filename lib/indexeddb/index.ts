@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import type { McpServerConfig } from '@/types';
 
 // Database schema definition
 export interface BuildFlowDB extends DBSchema {
@@ -14,6 +15,10 @@ export interface BuildFlowDB extends DBSchema {
   settings: {
     key: string;
     value: unknown;
+  };
+  mcpServers: {
+    key: string;
+    value: McpServerConfig;
   };
 }
 
@@ -108,22 +113,27 @@ export async function getDB(): Promise<IDBPDatabase<BuildFlowDB>> {
     return dbInstance;
   }
 
-  dbInstance = await openDB<BuildFlowDB>('buildflow-db', 1, {
+  dbInstance = await openDB<BuildFlowDB>('buildflow-db', 2, {
     upgrade(db) {
       // Projects store
       if (!db.objectStoreNames.contains('projects')) {
         const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
         projectStore.createIndex('by-updated', 'updatedAt');
       }
-      
+
       // API Keys store
       if (!db.objectStoreNames.contains('apiKeys')) {
         db.createObjectStore('apiKeys', { keyPath: 'provider' });
       }
-      
+
       // Settings store
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings');
+      }
+
+      // MCP Servers store (added in v2)
+      if (!db.objectStoreNames.contains('mcpServers')) {
+        db.createObjectStore('mcpServers', { keyPath: 'id' });
       }
     },
   });

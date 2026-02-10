@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiKeysSettings } from "@/components/settings/api-keys";
+import { McpServersSettings } from "@/components/settings/mcp-servers";
 import { useUser } from "@/hooks/useUser";
 import { useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -46,6 +47,7 @@ export default function SettingsPage() {
 
         <div className="space-y-6">
           <ApiKeysSettings />
+          <McpServersSettings />
         </div>
       </div>
     </div>

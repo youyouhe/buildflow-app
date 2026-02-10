@@ -33,7 +33,7 @@ export async function GET(
     const supabase = getSupabaseServerClient();
 
     // Increment view count (don't wait for it)
-    supabase.rpc('increment_project_view', { project_uuid: id }).catch(console.error);
+    supabase.rpc('increment_project_view', { project_uuid: id }).then(({ error }) => { if (error) console.error(error); });
 
     const { data: project, error } = await supabase
       .from('community_projects')

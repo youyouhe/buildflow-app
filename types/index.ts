@@ -318,3 +318,19 @@ export interface SupabaseUser {
   githubAvatarUrl: string;
   githubBio: string | null;
 }
+
+// ==========================================
+// MCP Server Types
+// ==========================================
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  url: string;
+  authToken?: string;
+  enabled: boolean;
+  isBuiltIn?: boolean;
+  createdAt: number;
+}
+
+export type McpConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error';

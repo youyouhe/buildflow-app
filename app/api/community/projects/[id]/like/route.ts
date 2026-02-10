@@ -89,7 +89,7 @@ export async function POST(
     }
 
     // Increment likes count
-    await supabase.rpc('increment_likes_count', { project_uuid: id }).catch(console.error);
+    await supabase.rpc('increment_likes_count', { project_uuid: id }).then(({ error }) => { if (error) console.error(error); });
 
     return NextResponse.json({ liked: true, likes_count: project.likes_count + 1 });
   } catch (error) {
@@ -168,7 +168,7 @@ export async function DELETE(
     }
 
     // Decrement likes count
-    await supabase.rpc('decrement_likes_count', { project_uuid: id }).catch(console.error);
+    await supabase.rpc('decrement_likes_count', { project_uuid: id }).then(({ error }) => { if (error) console.error(error); });
 
     return NextResponse.json({ liked: false, likes_count: project.likes_count - 1 });
   } catch (error) {
