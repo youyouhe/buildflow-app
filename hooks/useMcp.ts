@@ -26,16 +26,31 @@ interface McpServerState {
   error?: string;
 }
 
+function createProxiedFetch(targetUrl: string, authToken?: string): typeof fetch {
+  return async (input, init) => {
+    // The SDK calls fetch with the transport URL — we redirect to our proxy
+    const headers = new Headers(init?.headers);
+    headers.set("x-mcp-url", targetUrl);
+    if (authToken) {
+      headers.set("x-mcp-auth", authToken);
+    }
+
+    return fetch("/api/mcp-proxy", {
+      ...init,
+      headers,
+    });
+  };
+}
+
 function createTransport(config: Pick<McpServerConfig, "url" | "authToken">) {
-  const requestInit: RequestInit = {};
-  if (config.authToken) {
-    requestInit.headers = {
-      Authorization: `Bearer ${config.authToken}`,
-    };
-  }
-  return new StreamableHTTPClientTransport(new URL(config.url), {
-    requestInit,
-  });
+  // Use our API proxy to bypass CORS; the proxy URL is just a placeholder
+  // since our custom fetch ignores it and routes to /api/mcp-proxy
+  return new StreamableHTTPClientTransport(
+    new URL("/api/mcp-proxy", window.location.origin),
+    {
+      fetch: createProxiedFetch(config.url, config.authToken),
+    }
+  );
 }
 
 export function useMcp() {
