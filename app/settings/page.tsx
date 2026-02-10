@@ -3,13 +3,18 @@
 import { ApiKeysSettings } from "@/components/settings/api-keys";
 import { McpServersSettings } from "@/components/settings/mcp-servers";
 import { useUser } from "@/hooks/useUser";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   const { user, loading } = useUser();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -17,9 +22,9 @@ export default function SettingsPage() {
     }
   }, [user, loading]);
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="animate-pulse text-neutral-400">Loading...</div>
       </div>
     );
