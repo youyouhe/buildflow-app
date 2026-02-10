@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { McpServerConfig, McpConnectionStatus } from "@/types";
 import {
   getAllMcpServers,
@@ -26,37 +24,24 @@ interface McpServerState {
   error?: string;
 }
 
-function createProxiedFetch(targetUrl: string, authToken?: string): typeof fetch {
-  return async (input, init) => {
-    // The SDK calls fetch with the transport URL — we redirect to our proxy
-    const headers = new Headers(init?.headers);
-    headers.set("x-mcp-url", targetUrl);
-    if (authToken) {
-      headers.set("x-mcp-auth", authToken);
-    }
-
-    return fetch("/api/mcp-proxy", {
-      ...init,
-      headers,
-    });
-  };
-}
-
-function createTransport(config: Pick<McpServerConfig, "url" | "authToken">) {
-  // Use our API proxy to bypass CORS; the proxy URL is just a placeholder
-  // since our custom fetch ignores it and routes to /api/mcp-proxy
-  return new StreamableHTTPClientTransport(
-    new URL("/api/mcp-proxy", window.location.origin),
-    {
-      fetch: createProxiedFetch(config.url, config.authToken),
-    }
-  );
+async function mcpProxyCall(action: string, params: Record<string, unknown>) {
+  const res = await fetch("/api/mcp-proxy", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...params }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || `MCP proxy error: ${res.status}`);
+  }
+  return data;
 }
 
 export function useMcp() {
   const [servers, setServers] = useState<McpServerState[]>([]);
   const [loading, setLoading] = useState(true);
-  const clientsRef = useRef<Map<string, Client>>(new Map());
+  // Map server ID → proxy session ID
+  const sessionsRef = useRef<Map<string, string>>(new Map());
 
   // Load servers from IndexedDB on mount
   useEffect(() => {
@@ -84,17 +69,17 @@ export function useMcp() {
     };
   }, []);
 
-  // Cleanup all clients on unmount
+  // Cleanup all sessions on unmount
   useEffect(() => {
     return () => {
-      clientsRef.current.forEach(async (client) => {
+      sessionsRef.current.forEach(async (sessionId) => {
         try {
-          await client.close();
+          await mcpProxyCall("disconnect", { sessionId });
         } catch {
           // ignore cleanup errors
         }
       });
-      clientsRef.current.clear();
+      sessionsRef.current.clear();
     };
   }, []);
 
@@ -106,41 +91,34 @@ export function useMcp() {
     );
 
     try {
-      // Read config from IndexedDB (source of truth) to avoid React batching issues
       const config = await getMcpServer(serverId);
       if (!config) throw new Error("Server not found");
 
-      // Close existing client if any
-      const existingClient = clientsRef.current.get(serverId);
-      if (existingClient) {
+      // Disconnect existing session if any
+      const existingSession = sessionsRef.current.get(serverId);
+      if (existingSession) {
         try {
-          await existingClient.close();
+          await mcpProxyCall("disconnect", { sessionId: existingSession });
         } catch {
           // ignore
         }
       }
 
-      const client = new Client(
-        { name: "buildflow", version: "1.0.0" },
-        { capabilities: {} }
-      );
+      // Connect via server-side proxy (handles Streamable HTTP + SSE fallback)
+      const { sessionId } = await mcpProxyCall("connect", {
+        url: config.url,
+        authToken: config.authToken,
+      });
 
-      const transport = createTransport(config);
-      await client.connect(transport);
+      sessionsRef.current.set(serverId, sessionId);
 
-      clientsRef.current.set(serverId, client);
-
-      const result = await client.listTools();
-      const tools: McpTool[] = result.tools.map((t) => ({
-        name: t.name,
-        description: t.description,
-        inputSchema: t.inputSchema,
-      }));
+      // List tools
+      const { tools } = await mcpProxyCall("list-tools", { sessionId });
 
       setServers((prev) =>
         prev.map((s) =>
           s.config.id === serverId
-            ? { ...s, status: "connected", tools, error: undefined }
+            ? { ...s, status: "connected", tools: tools || [], error: undefined }
             : s
         )
       );
@@ -151,19 +129,19 @@ export function useMcp() {
           s.config.id === serverId ? { ...s, status: "error", error: message, tools: [] } : s
         )
       );
-      clientsRef.current.delete(serverId);
+      sessionsRef.current.delete(serverId);
     }
   }, []);
 
   const disconnectServer = useCallback(async (serverId: string) => {
-    const client = clientsRef.current.get(serverId);
-    if (client) {
+    const sessionId = sessionsRef.current.get(serverId);
+    if (sessionId) {
       try {
-        await client.close();
+        await mcpProxyCall("disconnect", { sessionId });
       } catch {
         // ignore
       }
-      clientsRef.current.delete(serverId);
+      sessionsRef.current.delete(serverId);
     }
 
     setServers((prev) =>
@@ -175,26 +153,18 @@ export function useMcp() {
 
   const testConnection = useCallback(
     async (config: Pick<McpServerConfig, "name" | "url" | "authToken">): Promise<{ success: boolean; toolCount?: number; error?: string }> => {
-      let client: Client | null = null;
       try {
-        client = new Client(
-          { name: "buildflow-test", version: "1.0.0" },
-          { capabilities: {} }
-        );
+        const { sessionId } = await mcpProxyCall("connect", {
+          url: config.url,
+          authToken: config.authToken,
+        });
 
-        const transport = createTransport(config);
-        await client.connect(transport);
+        const { tools } = await mcpProxyCall("list-tools", { sessionId });
 
-        const result = await client.listTools();
-        await client.close();
+        await mcpProxyCall("disconnect", { sessionId });
 
-        return { success: true, toolCount: result.tools.length };
+        return { success: true, toolCount: tools?.length || 0 };
       } catch (err) {
-        try {
-          await client?.close();
-        } catch {
-          // ignore
-        }
         const message = err instanceof Error ? err.message : "Connection failed";
         return { success: false, error: message };
       }
@@ -266,10 +236,10 @@ export function useMcp() {
 
   const callTool = useCallback(
     async (serverId: string, toolName: string, args: Record<string, unknown> = {}) => {
-      const client = clientsRef.current.get(serverId);
-      if (!client) throw new Error("Server not connected");
+      const sessionId = sessionsRef.current.get(serverId);
+      if (!sessionId) throw new Error("Server not connected");
 
-      return await client.callTool({ name: toolName, arguments: args });
+      return await mcpProxyCall("call-tool", { sessionId, toolName, arguments: args });
     },
     []
   );

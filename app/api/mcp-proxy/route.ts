@@ -1,112 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  mcpConnect,
+  mcpListTools,
+  mcpCallTool,
+  mcpDisconnect,
+} from "@/lib/mcp-session-manager";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const ALLOWED_HEADERS_TO_FORWARD = [
-  "content-type",
-  "authorization",
-  "mcp-session-id",
-  "mcp-protocol-version",
-  "last-event-id",
-  "accept",
-];
-
 /**
- * MCP Proxy — forwards browser MCP requests to remote servers to bypass CORS.
- * Supports POST (JSON-RPC), GET (SSE stream), and DELETE (session termination).
- * The target URL and auth token are passed via x-mcp-url and x-mcp-auth headers.
+ * MCP Proxy — manages MCP server connections on the server side.
+ * Handles both Streamable HTTP and SSE transports transparently.
+ *
+ * Actions:
+ *   connect      { url, authToken? }                → { sessionId }
+ *   list-tools   { sessionId }                      → { tools }
+ *   call-tool    { sessionId, toolName, arguments? } → { result }
+ *   disconnect   { sessionId }                      → { ok: true }
  */
-async function proxyRequest(request: NextRequest) {
-  const targetUrl = request.headers.get("x-mcp-url");
-  if (!targetUrl) {
-    return NextResponse.json({ error: "x-mcp-url header is required" }, { status: 400 });
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    new URL(targetUrl);
-  } catch {
-    return NextResponse.json({ error: "Invalid x-mcp-url" }, { status: 400 });
-  }
+    const body = await request.json();
+    const { action } = body;
 
-  // Build headers to forward
-  const forwardHeaders: Record<string, string> = {};
-  for (const name of ALLOWED_HEADERS_TO_FORWARD) {
-    const value = request.headers.get(name);
-    if (value) {
-      forwardHeaders[name] = value;
-    }
-  }
-
-  // Override auth if x-mcp-auth is provided
-  const authToken = request.headers.get("x-mcp-auth");
-  if (authToken) {
-    forwardHeaders["authorization"] = `Bearer ${authToken}`;
-  }
-
-  try {
-    const fetchInit: RequestInit = {
-      method: request.method,
-      headers: forwardHeaders,
-    };
-
-    // Forward body for POST/PUT/PATCH
-    if (request.method === "POST" || request.method === "PUT" || request.method === "PATCH") {
-      fetchInit.body = await request.text();
-    }
-
-    const upstream = await fetch(targetUrl, fetchInit);
-
-    const contentType = upstream.headers.get("content-type") || "";
-
-    // For SSE streams, pipe through as a readable stream
-    if (contentType.includes("text/event-stream") && upstream.body) {
-      const responseHeaders = new Headers();
-      responseHeaders.set("content-type", "text/event-stream");
-      responseHeaders.set("cache-control", "no-cache");
-      responseHeaders.set("connection", "keep-alive");
-
-      // Forward MCP session headers
-      const sessionId = upstream.headers.get("mcp-session-id");
-      if (sessionId) {
-        responseHeaders.set("mcp-session-id", sessionId);
+    switch (action) {
+      case "connect": {
+        const { url, authToken } = body;
+        if (!url) {
+          return NextResponse.json({ error: "url is required" }, { status: 400 });
+        }
+        const result = await mcpConnect(url, authToken);
+        return NextResponse.json(result);
       }
 
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: responseHeaders,
-      });
-    }
+      case "list-tools": {
+        const { sessionId } = body;
+        if (!sessionId) {
+          return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+        }
+        const result = await mcpListTools(sessionId);
+        return NextResponse.json(result);
+      }
 
-    // For JSON responses, forward normally
-    const responseHeaders = new Headers();
-    if (contentType) {
-      responseHeaders.set("content-type", contentType);
-    }
-    const sessionId = upstream.headers.get("mcp-session-id");
-    if (sessionId) {
-      responseHeaders.set("mcp-session-id", sessionId);
-    }
+      case "call-tool": {
+        const { sessionId, toolName, arguments: args } = body;
+        if (!sessionId || !toolName) {
+          return NextResponse.json(
+            { error: "sessionId and toolName are required" },
+            { status: 400 }
+          );
+        }
+        const result = await mcpCallTool(sessionId, toolName, args || {});
+        return NextResponse.json(result);
+      }
 
-    const body = await upstream.arrayBuffer();
-    return new Response(body, {
-      status: upstream.status,
-      headers: responseHeaders,
-    });
+      case "disconnect": {
+        const { sessionId } = body;
+        if (!sessionId) {
+          return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+        }
+        await mcpDisconnect(sessionId);
+        return NextResponse.json({ ok: true });
+      }
+
+      default:
+        return NextResponse.json(
+          { error: `Unknown action: ${action}` },
+          { status: 400 }
+        );
+    }
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Proxy request failed";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const message = err instanceof Error ? err.message : "Internal error";
+    console.error("[MCP Proxy]", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-export async function POST(request: NextRequest) {
-  return proxyRequest(request);
-}
-
-export async function GET(request: NextRequest) {
-  return proxyRequest(request);
-}
-
-export async function DELETE(request: NextRequest) {
-  return proxyRequest(request);
 }
