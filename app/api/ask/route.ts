@@ -1,20 +1,21 @@
 import { NextRequest } from "next/server";
 import { createAIProvider } from "@/lib/ai-providers/factory";
 import type { AIProviderName } from "@/lib/ai-providers/types";
-import { 
-  INITIAL_SYSTEM_PROMPT_LIGHT, 
-  FOLLOW_UP_SYSTEM_PROMPT_LIGHT, 
+import {
+  INITIAL_SYSTEM_PROMPT_LIGHT,
+  FOLLOW_UP_SYSTEM_PROMPT_LIGHT,
   INITIAL_SYSTEM_PROMPT,
   FOLLOW_UP_SYSTEM_PROMPT,
   INITIAL_SYSTEM_PROMPT_LIGHT_ZH,
   FOLLOW_UP_SYSTEM_PROMPT_LIGHT_ZH,
   INITIAL_SYSTEM_PROMPT_ZH,
   FOLLOW_UP_SYSTEM_PROMPT_ZH,
-  PROMPT_FOR_IMAGE_GENERATION, 
+  PROMPT_FOR_IMAGE_GENERATION,
   PROMPT_FOR_IMAGE_GENERATION_ZH,
   PROMPT_FOR_PROJECT_NAME,
   PROMPT_FOR_PROJECT_NAME_ZH,
 } from "@/lib/prompts";
+import { MODELS } from "@/lib/providers";
 import type { Page, EnhancedSettings } from "@/types";
 
 export const runtime = "edge";
@@ -58,23 +59,36 @@ function selectProvider(providerPreference: AIProviderName | "auto", model: stri
     return providerPreference;
   }
 
-  // For OpenRouter models, use openrouter provider
-  if (model.includes("/") || model.startsWith("anthropic/") || model.startsWith("google/") ||
-      model.startsWith("x-ai/") || model.startsWith("xiaomi/") || model.startsWith("moonshotai/") ||
-      model.startsWith("minimax/") || model.startsWith("arcee-ai/") || model.startsWith("deepseek/")) {
+  // Look up the model's preferred provider from the MODELS metadata
+  const modelMeta = MODELS.find(m => m.value === model);
+  if (modelMeta) {
+    const preferred = modelMeta.autoProvider as AIProviderName;
+    // Use the preferred provider if the user has a key for it
+    if (apiKeys && apiKeys[preferred]) {
+      return preferred;
+    }
+    // Otherwise try any other provider that supports this model
+    for (const p of modelMeta.providers) {
+      if (apiKeys && apiKeys[p]) {
+        return p as AIProviderName;
+      }
+    }
+  }
+
+  // Fallback for models not in the MODELS list:
+  // Slash-prefixed model IDs are OpenRouter models
+  if (model.includes("/")) {
     return "openrouter";
   }
 
-  // Priority order for auto selection
+  // Last resort: pick the first provider with an available key
   const providerPriority: AIProviderName[] = ["openrouter", "deepseek", "openai", "google"];
-
   for (const provider of providerPriority) {
     if (apiKeys && apiKeys[provider]) {
       return provider;
     }
   }
 
-  // Default to openrouter if no API keys available
   return "openrouter";
 }
 
