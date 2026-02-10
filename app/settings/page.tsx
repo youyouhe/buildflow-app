@@ -30,8 +30,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="max-w-4xl mx-auto py-12 px-4">
+    <div className="h-screen overflow-y-auto bg-black">
+      <div className="max-w-4xl mx-auto py-12 px-4 pb-24">
         <header className="mb-8">
           <Link href="/">
             <Button variant="ghost" className="mb-4 -ml-2 text-neutral-400 hover:text-white">
